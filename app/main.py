@@ -1,4 +1,5 @@
 import socket  # noqa: F401
+import threading
 
 
 def handle_request(client_socket: socket.socket) -> None:
@@ -22,14 +23,13 @@ def parse_request(data: bytes) -> str:
         request_line = request_data[0]
         method, path, http_ver = request_line.split()
 
-        # Request User-Agent
-        user_agent = get_user_agent(request_data)
-
         if method == "GET" and path == "/":
             return "HTTP/1.1 200 OK\r\n\r\n"
         elif path.startswith("/echo/"):
             return generate_200_response(path[6:])
         elif path.startswith("/user-agent"):
+            # Request User-Agent
+            user_agent = get_user_agent(request_data)
             return generate_200_response(user_agent)
         else:
             return "HTTP/1.1 404 Not Found\r\n\r\n"
@@ -68,7 +68,8 @@ def main():
         while True:
             client_socket, address = server_socket.accept()
             print(f"Connection from {address}")
-            handle_request(client_socket)
+            thrd = threading.Thread(target=handle_request, args=(client_socket,))
+            thrd.start()
     except KeyboardInterrupt:
         print("Shutting down Server ...")
     except Exception as e:
