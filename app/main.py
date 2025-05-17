@@ -11,6 +11,7 @@ def handle_request(client_socket: socket.socket) -> None:
     except Exception as e:
         print(f"Error handling request: {e}")
     finally:
+        print(f"Closing connection to {client_socket.getpeername()}")
         client_socket.close()
 
 
@@ -27,10 +28,9 @@ def parse_request(data: bytes) -> str:
         if method == "GET" and path == "/":
             return "HTTP/1.1 200 OK\r\n\r\n"
         elif path.startswith("/echo/"):
-            echo_txt = path[6:]
-            return f"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {len(echo_txt)}\r\n\r\n{echo_txt}"
+            return generate_200_response(path[6:])
         elif path.startswith("/user-agent"):
-            return f"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {len(user_agent)}\r\n\r\n{user_agent}"
+            return generate_200_response(user_agent)
         else:
             return "HTTP/1.1 404 Not Found\r\n\r\n"
 
@@ -39,12 +39,21 @@ def parse_request(data: bytes) -> str:
         return "HTTP/1.1 400 Bad Request\r\n\r\n"
 
 
-def get_user_agent(request_data: list[str]) -> str:
-    for request in request_data:
-        if "User-Agent" in request:
-            return request.split(': ')[1]
+def generate_200_response(response_text: str) -> str:
+    return f"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {len(response_text)}\r\n\r\n{response_text}"
 
-    return "User-Agent not found"
+
+def get_user_agent(request_data: list[str]) -> str | None:
+    try:
+        for request in request_data:
+            if "User-Agent" in request:
+                return request.split(': ')[1]
+
+        # This catches requests without User-Agent
+        raise Exception("User-Agent not found")
+    except Exception as e:
+        print(f"User-Agent Error: {e}")
+        return None
 
 
 def main():
