@@ -17,13 +17,15 @@ def handle_request(client_socket: socket.socket) -> None:
 def parse_request(data: bytes) -> str:
     try:
         request_data = data.decode().split("\r\n")
+        # Request Line
         request_line = request_data[0]
         method, path, http_ver = request_line.split()
 
         if method == "GET" and path == "/":
             return "HTTP/1.1 200 OK\r\n\r\n"
         elif path.startswith("/echo/"):
-            return f"HTTP/1.1 200 OK\r\nContent - Type: text / plain\r\nContent - Length: {len(path[6:])}\r\n\r\n{path[6:]}"
+            echo_txt = path[6:]
+            return f"HTTP/1.1 200 OK\r\nContent - Type: text / plain\r\nContent - Length: {len(echo_txt)}\r\n\r\n{echo_txt}\r\n"
         else:
             return "HTTP/1.1 404 Not Found\r\n\r\n"
 
