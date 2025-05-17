@@ -21,17 +21,30 @@ def parse_request(data: bytes) -> str:
         request_line = request_data[0]
         method, path, http_ver = request_line.split()
 
+        # Request User-Agent
+        user_agent = get_user_agent(request_data)
+
         if method == "GET" and path == "/":
             return "HTTP/1.1 200 OK\r\n\r\n"
         elif path.startswith("/echo/"):
             echo_txt = path[6:]
-            return f"HTTP/1.1 200 OK\r\nContent - Type: text / plain\r\nContent - Length: {len(echo_txt)}\r\n\r\n{echo_txt}\r\n"
+            return f"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {len(echo_txt)}\r\n\r\n{echo_txt}"
+        elif path.startswith("/user-agent"):
+            return f"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {len(user_agent)}\r\n\r\n{user_agent}"
         else:
             return "HTTP/1.1 404 Not Found\r\n\r\n"
 
     except Exception as e:
         print(f"Error parsing request: {e}")
         return "HTTP/1.1 400 Bad Request\r\n\r\n"
+
+
+def get_user_agent(request_data: list[str]) -> str:
+    for request in request_data:
+        if "User-Agent" in request:
+            return request.split(': ')[1]
+
+    return "User-Agent not found"
 
 
 def main():
