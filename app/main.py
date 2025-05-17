@@ -1,5 +1,7 @@
+import os
 import socket  # noqa: F401
 import threading
+import argparse
 
 
 def handle_request(client_socket: socket.socket) -> None:
@@ -24,23 +26,43 @@ def parse_request(data: bytes) -> str:
         method, path, http_ver = request_line.split()
 
         if method == "GET" and path == "/":
-            return "HTTP/1.1 200 OK\r\n\r\n"
+            return http_response_generator(200)
         elif path.startswith("/echo/"):
-            return generate_200_response(path[6:])
+            text = path[6:]
+            return http_response_generator(200, has_headers=True, content_type="text/plain", content_body=text)
         elif path.startswith("/user-agent"):
-            # Request User-Agent
+            # Request: User-Agent
             user_agent = get_user_agent(request_data)
-            return generate_200_response(user_agent)
+            return http_response_generator(200, has_headers=True, content_type="text/plain", content_body=user_agent)
+        elif path.startswith("/files/"):
+            # Request: File
+            args = parse_arguments()
+            file_path = os.path.join(args.directory, path[7:])
+            if file_content := get_file_content(file_path):
+                return http_response_generator(200, has_headers=True, content_type="application/octet-stream",
+                                               content_body=file_content)
+            else:
+                return http_response_generator(404)
         else:
-            return "HTTP/1.1 404 Not Found\r\n\r\n"
+            return http_response_generator(404)
 
     except Exception as e:
         print(f"Error parsing request: {e}")
-        return "HTTP/1.1 400 Bad Request\r\n\r\n"
+        return http_response_generator(400)
 
 
-def generate_200_response(response_text: str) -> str:
-    return f"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {len(response_text)}\r\n\r\n{response_text}"
+def http_response_generator(code: int = None, has_headers: bool = False, content_type: str = None,
+                            content_body: str = None) -> str:
+    if code == 200:
+        response = "HTTP/1.1 200 OK\r\n\r\n"
+        if has_headers:
+            response = f"HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nContent-Length: {len(content_body)}\r\n\r\n{content_body}"
+    elif code == 400:
+        response = "HTTP/1.1 400 Bad Request\r\n\r\n"
+    else:
+        response = "HTTP/1.1 404 Not Found\r\n\r\n"
+
+    return response
 
 
 def get_user_agent(request_data: list[str]) -> str | None:
@@ -54,6 +76,25 @@ def get_user_agent(request_data: list[str]) -> str | None:
     except Exception as e:
         print(f"User-Agent Error: {e}")
         return None
+
+
+def get_file_content(filename: str) -> str | None:
+    try:
+        with open(filename, "r") as f:
+            if content := f.read():
+                return content
+
+            # This catches if file is empty
+            raise Exception("File is Empty!")
+    except Exception as e:
+        print(f"File Error: {e}")
+        return None
+
+
+def parse_arguments():
+    parser = argparse.ArgumentParser(description="Simple HTTP Server")
+    parser.add_argument("--directory", help="Absolute directory path.", required=False)
+    return parser.parse_args()
 
 
 def main():
